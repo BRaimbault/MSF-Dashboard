@@ -5,17 +5,17 @@
     Please refer to the LICENSE.md and LICENSES-DEP.md for complete licenses.
 ------------------------------------------------------------------------------------*/
 /**
- * This file is the current implementation of the getdata module. 
+ * This file is the current implementation of the getdata module.
  * @since 0.8
  * @module main_loadfiles
  * @requires index.html
  * @requires user/user-defined.js
- * @todo Polish it all. 
+ * @todo Polish it all.
  **/
 module_getdata = {};
 /*------------------------------------------------------------------------------------
     Components:
-    0) 
+    0)
 ------------------------------------------------------------------------------------*/
 
 console.log(g);
@@ -50,7 +50,7 @@ module_getdata.load_propagate = function(){
     var count = g.module_getdata.count;
 
     if(count[1] >= getdata.datasources[getdata.datatypes[count[0]]].length && (count[0] >= getdata.datatypes.length - 1)){
-        console.log('main-getdata.js ~l70: Your last source has been read.');
+        console.log('main-getdata.js: Your last source has been read.');
         generate_display();
 
     }else{
@@ -78,8 +78,9 @@ module_getdata.load_propagate = function(){
               }
           }
       }
-      console.log('main-getdate.js ~l70: Current: ' + current_datatype + ' - ' + current_dataname);
+      console.log('main-getdata.js: Current: ' + current_datatype + ' - ' + current_dataname);
       var current_datasource = getdata[current_datatype][current_dataname];
+      //console.log("current_datasource: ", current_datasource);
       switch(current_datasource.method){
             case 'd3':
                 $(load_status).html('Getting Local files...');
@@ -104,6 +105,12 @@ module_getdata.load_propagate = function(){
                 var name = '' + current_datatype + '_data';
                 if(!g[name]){g[name] = {};}
                 module_getdata.load_filed3(current_datasource.options.url,current_datasource.options.type,[name,current_dataname],module_getdata.afterload_geometry_d3);
+                break;
+            case 'geonamescsv':
+                $(load_status).html('Getting local .csv files...');
+                var name = '' + current_datatype + '_data';
+                if(!g[name]){g[name] = {};}
+                module_getdata.load_filed3(current_datasource.options.url,current_datasource.options.type,[name,current_dataname],module_getdata.afterload_geo_altnames);
                 break;
             case 'populationd3':
                 $(load_status).html('Getting Local Population files...');
@@ -131,25 +138,25 @@ module_getdata.load_propagate = function(){
 module_getdata.load_filed3 = function(file,filetype,save,exit_fun) {
 
     if(filetype == 'txt' || filetype == 'TXT'){filetype = 'tsv';}
-    
+
     d3.queue()
         .defer(d3[filetype], file)
         .await(readfile);
 
     function readfile(error,data) {
         if(error){console.log(error);}
-        
+
         if(typeof save == 'string'){
-            g[save] = data;  
+            g[save] = data;
         }else if(save[0] && save[1]){
             g[save[0]][save[1]] = data;
-        } 
+        }
         exit_fun();
     }
 };
 
 module_getdata.load_filefs = function(file,filetype,save,exit_fun) {
-
+    //console.log('in load_filefs: ', file)
     var fs = nw.require('fs');
 
     fs.readFile(file, 'utf-8', function (error, data) {
@@ -158,14 +165,26 @@ module_getdata.load_filefs = function(file,filetype,save,exit_fun) {
         data = d3[filetype].parse(data);
 
         if(typeof save == 'string'){
-            g[save] = data;  
+            g[save] = data;
         }else if(save[0] && save[1]){
             g[save[0]][save[1]] = data;
-        } 
+        }
         exit_fun();
     });
+
+    fs.stat(file, function(err, stat1){
+        var new_atime = new Date();
+        
+        fs.utimes(file, new_atime, stat1.mtime, function(err) {
+            if (err) throw err;
+            //console.log('New access time set: ', new_atime)
+        })
+        //console.log('updated: ', stat1);
+    })
+
+
 };
-    
+
 
 
 /*--------------------------------------------------------------------
@@ -183,7 +202,7 @@ module_getdata.afterload_geometry_d3 = function() {
         module_getdata.process_geometry();
     }
 
-    module_getdata.load_propagate(); 
+    module_getdata.load_propagate();
 };
 
 // Common
@@ -217,7 +236,7 @@ module_getdata.process_geometry = function(){
          <br>
      * Processing triggered in {@link module:main_loadfiles~read_commons}.
      * @constant
-     * @type {Object.<Array.<String>>} 
+     * @type {Object.<Array.<String>>}
      * @alias module:g.geometry_loclists
      */
     g.geometry_loclists = {};
@@ -227,7 +246,7 @@ module_getdata.process_geometry = function(){
      <br>
      * Processing triggered in {@link module:main_loadfiles~read_commons}.
      * @constant
-     * @type {Array.<String>} 
+     * @type {Array.<String>}
      * @alias module:g.geometry_keylist
      */
     g.geometry_keylist = Object.keys(g.module_getdata.geometry);
@@ -236,7 +255,7 @@ module_getdata.process_geometry = function(){
          <br>
      * Processing triggered in {@link module:main_loadfiles~read_commons}.
      * @constant
-     * @type {{admNX: number}} 
+     * @type {{admNX: number}}
      * @alias module:g.geometry_levellist
      */
     g.geometry_levellist = {};
@@ -245,33 +264,64 @@ module_getdata.process_geometry = function(){
          <br>
      * Processing triggered in {@link module:main_loadfiles~read_commons}.
      * @constant
-     * @type {{admNX: number}} 
+     * @type {{admNX: number}}
      * @alias module:g.geometry_subnum
      */
     g.geometry_subnum = {};
-    g.geometry_keylist.forEach(function(key,keynum){
-        g.geometry_levellist[key] = keynum;
+    g.geometry_keylist.forEach(function(key,keynum){ 
+        g.geometry_levellist[key] = keynum;     
         g.geometry_loclists[key] = [];
-        g.geometry_data[key].features.forEach(function(f){
-            g.geometry_loclists[key].push(f.properties.name.trim());
+        g.geometry_data[key].features.forEach(function(f){  
+            g.geometry_loclists[key].push(f.properties.name.trim());    //add it into the geometry_loclists
             g.geometry_loclists.all.push(f.properties.name.trim());
-
-            // Compute number of Sub-Area in Area           
-            if(keynum == g.geometry_keylist.length - 1){
-                g.geometry_subnum[f.properties.name.trim()] = 1 ;
-                var temp_loc = ''; 
-                for (var i =  0; i <= g.geometry_keylist.length - 2; i++) {
-                    for (var j = 0; j <= i; j++) {
-                        temp_loc += ', ' + f.properties.name.trim().split(', ')[j].split('_').join(' ');                
+          
+            // Compute number of Sub-Areas in Area
+            if (g.new_layout) {
+                
+                if (!(module_multiadm.hasChildren(key))) {       //if it is lowest geometry - i.e. if it has no children
+                    g.geometry_subnum[f.properties.name.trim()] = 1 ;   //has 1 subarea/itself
+                    var temp_key = module_multiadm.getParent(key);
+                    var temp_loc = '';
+                    while (temp_key != '') {
+                        temp_loc += ', ' + f.properties.name.trim().split(', ')[g.geometry_levellist[temp_key]].split('_').join(' ');  //add parent name to beginning
+                        g.geometry_subnum[temp_loc.substring(2, temp_loc.length)]++;    //add to g.geometry_subnum
+                        temp_key = module_multiadm.getParent(temp_key);                 //get next parent up
                     }
-                    temp_loc = temp_loc.substring(2, temp_loc.length);
-                    g.geometry_subnum[temp_loc]++;
-                }   
-            }else{
-                g.geometry_subnum[f.properties.name.trim()] = 0 ;   
-            }   
+
+                } else {      //if it is not lowest geometry
+                    if (!(g.geometry_subnum[f.properties.name.trim()])) {       
+                        g.geometry_subnum[f.properties.name.trim()] = 0 ;
+                    }
+                }
+
+            } else {    
+
+                if (keynum == g.geometry_keylist.length - 1) {        //if it is lowest geometry
+                    g.geometry_subnum[f.properties.name.trim()] = 1 ;       //full geometry name = 1 subarea/itself (e.g. temp_loc=admN1,admN2,admN3)
+                    var temp_loc = '';
+                    for (var i=0; i<=g.geometry_keylist.length-2; i++) {       //for each higher adm level
+                       for (var j=0; j<=i; j++) {
+                            temp_loc += ', ' + f.properties.name.trim().split(', ')[j].split('_').join(' ');   //recreate geometry name(e.g. for admN2 name is admN1, admN2)
+                        }
+                        temp_loc = temp_loc.substring(2, temp_loc.length);
+                        g.geometry_subnum[temp_loc]++;
+                    }
+
+                } else {      //if it is not lowest geometry
+                    g.geometry_subnum[f.properties.name.trim()] = 0 ;
+                }
+
+            }
         });
     });
+};
+
+/*--------------------------------------------------------------------
+    Data load options: Alternative geometry names
+--------------------------------------------------------------------*/
+
+module_getdata.afterload_geo_altnames = function(data) {
+    module_getdata.load_propagate();
 };
 
 /*--------------------------------------------------------------------
@@ -280,7 +330,7 @@ module_getdata.process_geometry = function(){
 
 module_getdata.afterload_population = function(data) {
     module_getdata.process_population();
-    module_getdata.load_propagate();    
+    module_getdata.load_propagate();
 };
 
 module_getdata.process_population = function(){
@@ -290,37 +340,57 @@ module_getdata.process_population = function(){
          <br>
      * Processing triggered in {@link module:main_loadfiles~read_commons}.
      * @constant
-     * @type {Object.<Array.<String>>} 
+     * @type {Object.<Array.<String>>}
      * @alias module:g.population_loclists
      */
-    g.population_loclists = {};
+    g.module_population.population_loclists = {};
     /**
      * Restores population figures from {@link module:g.population_data} in order that each administrative level is stored in a different Object.
          <br>
      * Processing triggered in {@link module:main_loadfiles~read_commons}.
      * @constant
-     * @type {Object.<Array.<String>>} 
+     * @type {Object.<Array.<String>>}
      * @alias module:g.population_databyloc
      */
-    g.population_databyloc = {};
-    
+    g.module_population.population_databyloc = {};      //Object to account for new population data format of multiple years of pop defined
+
     /**
      * Stores keys of each administrative level extracted from the {@link module:g.module_getdata.population}.
          <br>
      * Processing triggered in {@link module:main_loadfiles~read_commons}.
      * @constant
-     * @type {Object.<Array.<String>>} 
+     * @type {Object.<Array.<String>>}
      * @alias module:g.population_keylist
      */
-    g.population_keylist = Object.keys(g.module_getdata.population);
-    g.population_keylist.forEach(function(key){
-        g.population_loclists[key] = [];
-        g.population_databyloc[key] = {};
-        g.population_data[key].forEach(function(f){
-            g.population_loclists[key].push(f[g.population_headerlist.admNx.trim()]);
-            g.population_databyloc[key][f[g.population_headerlist.admNx.trim()]] = parseInt(f[g.population_headerlist.pop]);
+    g.module_population.population_keylist = Object.keys(g.module_getdata.population);
+    if (g.module_population.pop_new_format) {                               //Note: hardcoding of admNx here
+        //Accounting for new population data format 
+        g.module_population.population_keylist.forEach(function(key){
+            g.module_population.population_loclists[key] = [];
+            g.module_population.population_databyloc[key] = {};
+            g.population_data[key].forEach(function(f){
+                //console.log(f, f[g.module_population.pop_headerlist.admNx.trim()]);
+                g.module_population.population_loclists[key].push(f[g.module_population.pop_headerlist.admNx.trim()]);
+                temp={};
+                for (pop_yr in g.module_population.pop_headerlist.pop) {
+                    temp[pop_yr] = parseInt(f[pop_yr]);
+                };
+                //console.log(temp);
+                g.module_population.population_databyloc[key][f[g.module_population.pop_headerlist.admNx.trim()]] = temp;
+            });            
         });
-    }); 
+    } else {        
+        g.module_population.population_keylist.forEach(function(key){
+            g.module_population.population_loclists[key] = [];
+            g.module_population.population_databyloc[key] = {};
+            g.population_data[key].forEach(function(f){
+                g.module_population.population_loclists[key].push(f[g.population_headerlist.admNx.trim()]);
+                g.module_population.population_databyloc[key][f[g.population_headerlist.admNx.trim()]] = parseInt(f[g.population_headerlist.pop]);
+            
+            });
+        });
+    }
+    
 };
 
 /*--------------------------------------------------------------------
@@ -334,7 +404,7 @@ module_getdata.load_medical_xlsfolders = function(path) {
     /**
      * Gets the medical data folder path.
      * @constant
-     * @type {String} 
+     * @type {String}
      * @alias module:g.medical_folder
      */
     g.medical_folder = path;
@@ -342,7 +412,7 @@ module_getdata.load_medical_xlsfolders = function(path) {
     /**
      * Lists the medical data files in the {@link module:g.medical_folder} folder path (uses Node server-side capability).
      * @constant
-     * @type {Array.<String>} 
+     * @type {Array.<String>}
      * @alias module:g.medical_filelist_raw
      */
     g.medical_filelist_raw = fs.readdirSync('.'+g.medical_folder);
@@ -350,7 +420,7 @@ module_getdata.load_medical_xlsfolders = function(path) {
     /**
      * Stores the name of the file currently being read. Starts with the first file in the {@link module:g.medical_filelist} and then {@link module:main_loadfiles~generate_display} gives the user the option to choose between all the available files.
      * @constant
-     * @type {String} 
+     * @type {String}
      * @alias module:g.medical_filecurrent
      */
     g.medical_filecurrent = undefined;
@@ -358,13 +428,14 @@ module_getdata.load_medical_xlsfolders = function(path) {
     /**
      * Lists files in the datafolder that matches the extension criteria (currently *.txt | *.TXT | *.csv | *.CSV) in the {@link module:g.medical_filelist_raw}.
      * @constant
-     * @type {Array.<String>} 
-     * @alias module:g.medical_filelist 
+     * @type {Array.<String>}
+     * @alias module:g.medical_filelist
      **/
     g.medical_filelist = [];
 
     // Check file format (currently only .text / tabulation separated values - tsv)
     g.medical_filelist_raw.forEach(function(f){
+        console.log(path,f);
         var cond = f.substr(f.length - 5)=='.xlsx' || f.substr(f.length - 5)=='.XLSX';
         if(cond){
             g.medical_filelist.push(f);
@@ -377,7 +448,7 @@ module_getdata.load_medical_xlsfolders = function(path) {
     /**
      * Stores the type of the file about to be read from {@link module:g.medical_filecurrent} in order to use the correct parsing method in {@link module:main_loadfiles~queue_medical}.
      * @constant
-     * @type {String} 
+     * @type {String}
      * @alias module:g.medical_filetypecurrent
      **/
     g.medical_filetypecurrent = g.medical_filecurrent.substr(g.medical_filecurrent.length - 3);
@@ -403,42 +474,72 @@ module_getdata.load_medical_xls = function() {
     var lastRow = input['!ref'].split(':')[1].replace( /^\D+/g, '');
 
     var firstCol = lettersToNumbers('A');
-    var lastCol = lettersToNumbers('J'); 
+    var lastCol = lettersToNumbers('L');
 
-    for (var r = firstRow; r <= lastRow;r++) {
-
+      for (var r = firstRow; r <= lastRow;r++) {
         var test_empty = true;
-        var temp_array = []; 
-                  
-
+        var temp_array = [];
 
         for (var c = firstCol; c <= lastCol+1; c++) {
-
             val = (typeof input[numbersToLetters(c) + r] !== 'undefined') ? input[numbersToLetters(c) + r].v : undefined;
-
             if(val !== undefined){
                 test_empty = false;
             }
-
             temp_array.push(val);
-        }
-        
-        if(!test_empty){
-            medical_data.push(
-                {
-                    Region: temp_array[0],
-                    ZS: temp_array[1],
-                    AS: temp_array[2],
-                    epiweek: temp_array[3],
-                    disease: temp_array[4],
-                    nb_cases: temp_array[5],
-                    nb_deaths: temp_array[6],
-                    info_date: temp_array[7],
-                    info_source: temp_array[8],
-                    comment: temp_array[9]
-                }
-            );
         }   
+            
+        function getCellValue(cell) {
+            if (typeof cell !== 'undefined') {
+                return cell.v;
+            } else {
+                return '';// undefined;
+            }
+        }
+
+        temp_data = {};
+            
+        if (g.medical_headers_xlsx) {       
+            temp_data[g.medical_headerlist['admN1']] = getCellValue(input[g.medical_headers_xlsx['admN1'][0] + r]);
+            temp_data[g.medical_headerlist['admN2']] = getCellValue(input[g.medical_headers_xlsx['admN2'][0] + r]);
+            temp_data[g.medical_headerlist['epiwk']] = getCellValue(input[g.medical_headers_xlsx['epiwk'][0] + r]);
+            temp_data[g.medical_headerlist['disease']] = getCellValue(input[g.medical_headers_xlsx['disease'][0] + r]);
+            temp_data[g.medical_headerlist['fyo']] = 'u';
+            temp_data[g.medical_headerlist['case']] = getCellValue(input[g.medical_headers_xlsx['case_u5'][0] + r]);
+            temp_data[g.medical_headerlist['death']] = getCellValue(input[g.medical_headers_xlsx['death_u5'][0] + r]);
+            medical_data.push(     
+                temp_data
+            ); 
+
+            temp_data = {};
+
+            temp_data[g.medical_headerlist['admN1']] = getCellValue(input[g.medical_headers_xlsx['admN1'][0] + r]);
+            temp_data[g.medical_headerlist['admN2']] = getCellValue(input[g.medical_headers_xlsx['admN2'][0] + r]);
+            temp_data[g.medical_headerlist['epiwk']] = getCellValue(input[g.medical_headers_xlsx['epiwk'][0] + r]);
+            temp_data[g.medical_headerlist['disease']] = getCellValue(input[g.medical_headers_xlsx['disease'][0] + r]);
+            temp_data[g.medical_headerlist['fyo']] = 'o';
+            temp_data[g.medical_headerlist['case']] = getCellValue(input[g.medical_headers_xlsx['case_o5'][0] + r]);
+            temp_data[g.medical_headerlist['death']] = getCellValue(input[g.medical_headers_xlsx['death_o5'][0] + r]);
+
+            medical_data.push(     
+                temp_data
+            ); 
+
+        } else if(!test_empty) {    //TODO: Order of xlsx headings is significant here; need to get correctly named column heading instead of it being sequential
+
+            temp_data['Region'] = temp_array[0];
+            temp_data[g.medical_headerlist['admN1']] = temp_array[1];
+            temp_data[g.medical_headerlist['admN2']] = temp_array[2];
+            temp_data[g.medical_headerlist['epiwk']] = temp_array[3];
+            temp_data[g.medical_headerlist['disease']] = temp_array[4];
+            temp_data[g.medical_headerlist['case']] = temp_array[5];
+            temp_data[g.medical_headerlist['death']] = temp_array[6];
+            temp_data[g.medical_headerlist['date']] = temp_array[7];
+            temp_data[g.medical_headerlist['source']] = temp_array[8];
+            temp_data[g.medical_headerlist['comment']] = temp_array[9];
+            medical_data.push(     
+                temp_data
+            ); 
+        };
 
     };
 
@@ -458,6 +559,7 @@ module_getdata.load_medical_xls = function() {
         return sum;
     }
     g.medical_data = medical_data;
+    //console.log("g.medical_data = ", g.medical_data); 
     module_getdata.afterload_medical_d3(medical_data);
 
 };
@@ -469,6 +571,13 @@ module_getdata.reload_medical = function() {
         module_getdata.load_medical_xls();
     }else if(g.module_getdata.medical.medical.method == 'medicald3server'){
         module_getdata.load_filed3(g.medical_folder + g.medical_filecurrent, g.medical_filetypecurrent,'medical_data',module_getdata.afterload_medical_d3);
+    }else if(g.module_getdata.medical.medical.method == 'medicalfs'){
+        //Windows:
+        module_getdata.load_filefs('.' + g.medical_folder + g.medical_filecurrent, g.medical_filetypecurrent,'medical_data',module_getdata.afterload_medical_d3);
+        //MacOS:
+        //module_getdata.load_filefs('input/' + g.medical_filecurrent, g.medical_filetypecurrent,'medical_data',module_getdata.afterload_medical_d3);
+    }else{
+        console.log('main-getdata.js ~l475: The medical data parsing method does not currently allow selecting from folder.');;
     }
 };
 
@@ -491,23 +600,27 @@ module_getdata.load_medical_fs = function(path, ftype) {
     /**
      * Gets the medical data folder path.
      * @constant
-     * @type {String} 
+     * @type {String}
      * @alias module:g.medical_folder
      */
     g.medical_folder = path;
+    //var path = nw.require("path");
+    //console.log("./ = %s", path.resolve("./"));
 
     /**
      * Lists the medical data files in the {@link module:g.medical_folder} folder path (uses Node server-side capability).
      * @constant
-     * @type {Array.<String>} 
+     * @type {Array.<String>}
      * @alias module:g.medical_filelist_raw
      */
-    g.medical_filelist_raw = fs.readdirSync('.'+g.medical_folder);
-
+    //Windows ('../input/'):
+    g.medical_filelist_raw = fs.readdirSync('.'+g.medical_folder);   
+    //MAC OS ('input/'):
+    //g.medical_filelist_raw = fs.readdirSync('input/');  
     /**
      * Stores the name of the file currently being read. Starts with the first file in the {@link module:g.medical_filelist} and then {@link module:main_loadfiles~generate_display} gives the user the option to choose between all the available files.
      * @constant
-     * @type {String} 
+     * @type {String}
      * @alias module:g.medical_filecurrent
      */
     g.medical_filecurrent = undefined;
@@ -515,13 +628,20 @@ module_getdata.load_medical_fs = function(path, ftype) {
     /**
      * Lists files in the datafolder that matches the extension criteria (currently *.txt | *.TXT | *.csv | *.CSV) in the {@link module:g.medical_filelist_raw}.
      * @constant
-     * @type {Array.<String>} 
-     * @alias module:g.medical_filelist 
+     * @type {Array.<String>}
+     * @alias module:g.medical_filelist
      **/
     g.medical_filelist = [];
 
+    /*fs.stat('.'+g.medical_folder+'/'+g.medical_filelist_raw[0], function(err, stat1){
+        //stat1.atime = new Date();
+        console.log(stat1);
+    })*/
+
     // Check file format (currently only .text / tabulation separated values - tsv)
     g.medical_filelist_raw.forEach(function(f){
+        //console.log(f);
+
         if(ftype == 'csv'){
             var cond = f.substr(f.length - 4)=='.csv' || f.substr(f.length - 4)=='.CSV';
         }else if(ftype == 'tsv'){
@@ -534,19 +654,34 @@ module_getdata.load_medical_fs = function(path, ftype) {
         }
     });
 
+    //Re-order g.medical_filelist by most recent access time
+    //console.log('Before re-order: ', g.medical_filelist);
+    dir = '.'+g.medical_folder+'/';
+    g.medical_filelist = g.medical_filelist.map (function(fileName) {
+        return {
+            name: fileName,
+            time: fs.statSync(dir + fileName).atime.getTime()
+        };
+    }).sort(function(a,b) {
+        return b.time - a.time;
+    }).map(function(v) {return v.name;});
+    //console.log('After re-order: ', g.medical_filelist);
+
+
     // Initialise with first medical file in the list
     g.medical_filecurrent = g.medical_filelist[0];
 
     /**
      * Stores the type of the file about to be read from {@link module:g.medical_filecurrent} in order to use the correct parsing method in {@link module:main_loadfiles~queue_medical}.
      * @constant
-     * @type {String} 
+     * @type {String}
      * @alias module:g.medical_filetypecurrent
      **/
     g.medical_filetypecurrent = g.medical_filecurrent.substr(g.medical_filecurrent.length - 3);
-
+    //Windows:
     module_getdata.load_filefs('.' + g.medical_folder + g.medical_filecurrent, ftype,'medical_data',module_getdata.afterload_medical_d3);
-
+    //MacOS:
+    //module_getdata.load_filefs('input/' + g.medical_filecurrent, g.medical_filetypecurrent,'medical_data',module_getdata.afterload_medical_d3);
 }
 
 module_getdata.load_medical_d3 = function(ftype) {
@@ -554,8 +689,8 @@ module_getdata.load_medical_d3 = function(ftype) {
     /**
      * Lists files in the datafolder that matches the extension criteria (currently *.txt | *.TXT | *.csv | *.CSV) in the {@link module:g.medical_filelist_raw}.
      * @constant
-     * @type {Array.<String>} 
-     * @alias module:g.medical_filelist 
+     * @type {Array.<String>}
+     * @alias module:g.medical_filelist
      **/
     g.medical_filelist = [];
 
@@ -579,7 +714,7 @@ module_getdata.load_medical_d3 = function(ftype) {
     /**
      * Stores the type of the file about to be read from {@link module:g.medical_filecurrent} in order to use the correct parsing method in {@link module:main_loadfiles~queue_medical}.
      * @constant
-     * @type {String} 
+     * @type {String}
      * @alias module:g.medical_filetypecurrent
      **/
     g.medical_filetypecurrent = g.medical_filecurrent.substr(g.medical_filecurrent.length - 3);
@@ -592,17 +727,18 @@ module_getdata.afterload_medical_d3 = function(data) {
   /**
    * Lists from {@link module:g.medical_headerlist} the keys used to refer to specific {@link module:g.medical_data} fields. Defined in the Dashboard (might be different from the headers in the data files) in {@link user-defined} {@link module:g.medical_headerlist}.
    * @constant
-   * @type {Array.<String>} 
+   * @type {Array.<String>}
    * @alias module:g.medical_keylist
    */
   g.medical_keylist = Object.keys(g.medical_headerlist);
 
   console.log('main-getdata.js ~l630: Medical file selected: ' + g.medical_filecurrent);
+  $('#src_file').html('<b>'+g.medical_filecurrent+'</b>');
 
 
   // Load Optional Module: module-datacheck.js
-  module_datacheck.dataprocessing();  
-  module_getdata.load_propagate();    
+  module_datacheck.dataprocessing();
+  module_getdata.load_propagate();
 };
 
 // KoBo
@@ -637,11 +773,13 @@ module_getdata.load_initiate();
 
 /**
  * Takes a string and returns the same string with title case (first letter of each word is capitalized). Used to normalize strings such as administrative division names or disease names.
- * @type {Function} 
+ * @type {Function}
  * @param {String} str
  * @returns {String}
  * @alias module:module_datacheck~toTitleCase
  */
 function toTitleCase(str){
-    return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+    //return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+    return str.toLowerCase().replace(/(?:^|[\s-/])\w/g, function(match) {return match.toUpperCase()});
+
 }

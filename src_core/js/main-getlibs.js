@@ -5,13 +5,14 @@
     Please refer to the LICENSE.md and LICENSES-DEP.md for complete licenses.
 ------------------------------------------------------------------------------------*/
 /**
- * This file loads synchronously all the librairies required.
+ * This file synchronously loads all the libraries required.
+ * @module main_getlibs 
  * @since 0.9
  * @requires index.html
  **/
 
 var files = [
-    // Third-party opensource librairies
+    // Third-party opensource libraries
     ['js','jquery/jquery-2.2.0.min.js',lib_folder],
     ['js','jszip/jszip.js',lib_folder],
     ['js','sheetjs/xlsx.js',lib_folder],
@@ -27,6 +28,7 @@ var files = [
     ['css','leaflet/leaflet.css',lib_folder],
     ['js','leaflet/leaflet.js',lib_folder],
     ['js','leaflet.sync/L.Map.Sync.js',lib_folder],
+    //['js','leaflet-easyPrint.js',lib_folder],
     ['css','datatables/jquery.dataTables.min.css',lib_folder],
     ['js','datatables/jquery.dataTables.min.js',lib_folder],
     ['css','datatables/buttons.dataTables.min.css',lib_folder],
@@ -50,9 +52,11 @@ var files = [
     ['css','css/module-chartwarper.css',prg_folder],
     ['js','js/module-chartwarper.js',prg_folder],
     ['css','css/module-datatable.css',prg_folder],
-    ['js','js/module-datatable.js',prg_folder],
+    ['js','js/module-datatable.js',prg_folder],   
     ['css','css/main-core.css',prg_folder],
     ['js','js/main-core.js',prg_folder],
+    ['js','js/module-epitime.js',prg_folder],      
+    ['js','js/module-population.js',prg_folder],     
     ['css','css/module-intro.css',prg_folder],
     ['js','js/module-intro.js',prg_folder],
     ['css','css/module-interface.css',prg_folder],
@@ -62,7 +66,7 @@ var files = [
     ['js','js/main-getdata.js',prg_folder]
 ];
 
-function include_librairies(files) {
+function include_libraries(files) {
     inc_count = -1;
     inc_total = files.length - 1;
     var loadScript = function(files, callback){
@@ -72,7 +76,7 @@ function include_librairies(files) {
             if(file[0] == 'css'){
                 document.getElementsByTagName("head")[0].innerHTML += ("<link href=\"" + file[2] + file[1] + "\" rel=\"stylesheet\" type=\"text/css\">");
                 if(file[1] == 'css/index.css'){
-                    $('.modal-content').html('<div id="loading" class="modal-body"><h2>Loading...</h2><br><span id="load_status">Loading javascript librairies...</span></div>');
+                    $('.modal-content').html('<div id="loading" class="modal-body"><h2>Loading...</h2><br><span id="load_status">Loading javascript libraries...</span></div>');
                 }
                 callback(files, callback);
             }else if(file[0] == 'js'){
@@ -99,7 +103,18 @@ function include_librairies(files) {
 }
 
 // Global Variables: permanent and modules list  
+/**
+ * Stores all global variables for the dashboard
+ * @global
+ * @namespace
+ **/
 var g = {};
+
+/**
+ * Stores a list of module names that have been run
+ * @global
+ * @namespace
+ **/
 var modules_list = {};
 
-include_librairies(files); 
+include_libraries(files); 
